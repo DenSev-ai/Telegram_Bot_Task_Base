@@ -49,7 +49,7 @@ def read_csv_rows(path: Path) -> list[dict[str, str]]:
 
 
 def add_status_and_category(source: Path, destination: Path) -> Path:
-    """Add the 'Статус' and 'Категория' columns to an exported CSV file."""
+    """Rename status to «Статус» and add the «Категория» column."""
     rows = read_csv_rows(source)
     fieldnames = ["id", "text", "user", "created_at", "Статус", "Категория"]
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -57,7 +57,7 @@ def add_status_and_category(source: Path, destination: Path) -> Path:
         writer = csv.DictWriter(file, fieldnames=fieldnames, delimiter=CSV_DELIMITER)
         writer.writeheader()
         for row in rows:
-            row["Статус"] = "новая"
+            row["Статус"] = row.pop("status", "новая")
             row["Категория"] = "личное"
             writer.writerow(row)
     return destination

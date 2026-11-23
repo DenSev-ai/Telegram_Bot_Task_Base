@@ -8,6 +8,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+DEFAULT_STATUS = "новая"
+COLUMN_STATUS = "status"
+
 
 @dataclass(frozen=True, slots=True)
 class Task:
@@ -17,6 +20,7 @@ class Task:
     text: str
     user: str
     created_at: str
+    status: str = DEFAULT_STATUS
 
 
 class TaskRepository:
@@ -34,33 +38,61 @@ class TaskRepository:
         return connection
 
     def init_schema(self) -> None:
-        """Create the tasks table if it does not exist yet."""
+        """Create the tasks table and add missing columns to older databases."""
         with closing(self._connect()) as connection, connection:
             connection.execute(
-                """
+                f"""
                 CREATE TABLE IF NOT EXISTS tasks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     text TEXT NOT NULL,
                     user TEXT NOT NULL,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    {COLUMN_STATUS} TEXT NOT NULL DEFAULT '{DEFAULT_STATUS}'
                 )
                 """
             )
+            self._add_missing_status_column(connection)
 
-    def add_task(self, text: str, user: str) -> int:
+    @staticmethod
+    def _add_missing_status_column(connection: sqlite3.Connection) -> None:
+        """Add the status column to a table created by an earlier version."""
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(tasks)")
+        }
+        if COLUMN_STATUS not in columns:
+            connection.execute(
+                f"ALTER TABLE tasks ADD COLUMN {COLUMN_STATUS} "
+                f"TEXT NOT NULL DEFAULT '{DEFAULT_STATUS}'"
+            )
+
+    def add_task(self, text: str, user: str, status: str = DEFAULT_STATUS) -> int:
         """Insert a task and return its generated identifier."""
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with closing(self._connect()) as connection, connection:
             cursor = connection.execute(
-                "INSERT INTO tasks (text, user, created_at) VALUES (?, ?, ?)",
-                (text, user, created_at),
+                "INSERT INTO tasks (text, user, created_at, status) "
+                "VALUES (?, ?, ?, ?)",
+                (text, user, created_at, status),
             )
             return int(cursor.lastrowid)
+
+    def set_status(self, task_id: int, status: str) -> bool:
+        """Update the status of one task.
+
+        Returns:
+            True if a task with this id exists and was updated.
+        """
+        with closing(self._connect()) as connection, connection:
+            cursor = connection.execute(
+                "UPDATE tasks SET status = ? WHERE id = ?",
+                (status, task_id),
+            )
+            return cursor.rowcount > 0
 
     def list_tasks(self) -> list[Task]:
         """Return all tasks in insertion order (oldest first)."""
         with closing(self._connect()) as connection:
             rows = connection.execute(
-                "SELECT id, text, user, created_at FROM tasks ORDER BY id ASC"
+                "SELECT id, text, user, created_at, status FROM tasks ORDER BY id ASC"
             ).fetchall()
         return [Task(**dict(row)) for row in rows]

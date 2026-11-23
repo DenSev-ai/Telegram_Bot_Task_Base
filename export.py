@@ -11,7 +11,7 @@ from database import Task
 # Excel with a Russian locale expects a semicolon delimiter and a UTF-8 BOM.
 CSV_DELIMITER = ";"
 CSV_ENCODING = "utf-8-sig"
-CSV_FIELDS = ("id", "text", "user", "created_at")
+CSV_FIELDS = ("id", "text", "user", "created_at", "status")
 
 
 def write_tasks_csv(tasks: Iterable[Task], destination: str | Path) -> Path:
@@ -40,6 +40,7 @@ def write_tasks_csv(tasks: Iterable[Task], destination: str | Path) -> Path:
                     "text": task.text,
                     "user": task.user,
                     "created_at": task.created_at,
+                    "status": task.status,
                 }
             )
     return path

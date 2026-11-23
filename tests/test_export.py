@@ -28,7 +28,7 @@ def test_csv_has_bom_and_expected_header(tmp_path: Path) -> None:
 
     assert path.read_bytes().startswith(b"\xef\xbb\xbf")
     assert path.read_text(encoding=CSV_ENCODING).splitlines()[0] == (
-        "id;text;user;created_at"
+        "id;text;user;created_at;status"
     )
 
 
@@ -45,4 +45,13 @@ def test_csv_without_tasks_contains_only_header(tmp_path: Path) -> None:
     path = write_tasks_csv([], tmp_path / "tasks.csv")
 
     assert read_rows(path) == []
-    assert path.read_text(encoding=CSV_ENCODING).strip() == "id;text;user;created_at"
+    assert path.read_text(encoding=CSV_ENCODING).strip() == (
+        "id;text;user;created_at;status"
+    )
+
+
+def test_csv_contains_status_column(tmp_path: Path) -> None:
+    tasks = [Task(id=1, text="Task", user="42", created_at="2026-11-22 10:00:00")]
+    path = write_tasks_csv(tasks, tmp_path / "tasks.csv")
+
+    assert read_rows(path)[0]["status"] == "новая"
